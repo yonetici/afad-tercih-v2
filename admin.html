@@ -114,12 +114,30 @@
     </div>
     <div class="card" id="sbCard">
       <div class="toolbar"><b>☁️ Supabase</b><span class="muted small" id="sbState"></span></div>
+      <div class="flex" id="adminLoginRow" style="margin-bottom:10px">
+        <span style="font-weight:600">🔐 Yönetici girişi:</span>
+        <input class="search" id="aliSira" inputmode="numeric" placeholder="Sıra no" style="min-width:80px;max-width:110px"/>
+        <select class="search" id="aliIl" style="min-width:150px"></select>
+        <input class="search" type="password" id="aliPass" placeholder="Şifre" style="min-width:140px"/>
+        <button class="btn" id="adminLoginBtn">Giriş</button>
+        <span class="muted small" id="adminLoginMsg"></span>
+      </div>
+      <div class="flex" id="adminWhoRow" style="margin-bottom:10px;display:none">
+        <span class="muted small" id="adminWho"></span>
+        <button class="btn ghost sm" id="adminLogout">Çıkış</button>
+      </div>
       <div class="flex" style="margin-bottom:10px">
-        <input class="search" type="password" id="adminKey" placeholder="Yönetici anahtarı" style="min-width:180px"/>
         <button class="btn" id="sbPull">⬇️ Supabase'ten Çek (verileri yükle)</button>
         <button class="btn ghost" id="sbLock" title="Tüm adayların tercihlerini kilitler">🔒 Tercihleri Kilitle</button>
         <button class="btn ghost" id="sbUnlock" title="Tercih değişikliğini yeniden açar">🔓 Tercihleri Aç</button>
       </div>
+      <details style="margin-bottom:10px">
+        <summary class="muted small" style="cursor:pointer">Gelişmiş: yönetici anahtarı (yedek / kurtarma)</summary>
+        <div class="flex" style="margin-top:8px">
+          <input class="search" type="password" id="adminKey" placeholder="Yönetici anahtarı (master)" style="min-width:220px"/>
+          <span class="muted small">Normalde gerekmez — giriş yapınca otomatik dolar. Yalnızca kilitlenme durumunda kullanın.</span>
+        </div>
+      </details>
       <div class="flex" style="margin-bottom:10px;border-top:1px solid var(--line);padding-top:10px">
         <button class="btn" id="seedBtn" style="background:#16a34a" title="Google Sheets'ten adayları + mevcut tercihleri BİR KEZ içe aktarır; yeni adaylara varsayılan şifre üretir ve indirir">🌱 İlk Kurulum: Sheet'ten Tohumla</button>
         <span style="font-weight:600;margin-left:8px">🔑 Şifre sıfırla:</span>
@@ -128,6 +146,19 @@
         <span class="muted small" id="adminMsg"></span>
       </div>
       <div class="note" style="margin:0">Adaylar <b>ana sayfadan</b> (kök adres) <b>sıra no + il + şifre</b> ile giriş yapıp tercihlerini <b>kaydeder</b> (ilk girişte şifre değişir). Veriler Supabase'te tutulur; ekrana <b>"Supabase'ten Çek"</b> ile gelir. Bu yönetici sayfası: <code>admin.html</code>.</div>
+    </div>
+    <div class="card" id="permCard" style="display:none">
+      <div class="toolbar"><b>🛡️ Yetkiler (yönetici erişimi)</b></div>
+      <div class="flex" style="margin-bottom:10px">
+        <span style="font-weight:600">Sıra no:</span>
+        <input class="search" id="permSira" inputmode="numeric" placeholder="Sıra no" style="min-width:80px;max-width:110px"/>
+        <button class="btn" id="permGrant" style="background:#16a34a">➕ Yetki Ver</button>
+        <button class="btn ghost" id="permRevoke">➖ Yetki Al</button>
+        <span class="muted small" id="permMsg"></span>
+      </div>
+      <div class="anahead" style="color:#86efac">Mevcut yöneticiler</div>
+      <div id="adminListBox" class="analist"></div>
+      <div class="note" style="margin:10px 0 0">Yetki verilen kişi <b>kendi sıra no + il + şifresiyle</b> bu sayfaya girebilir. Yetki geri alındığında <b>sonraki girişte</b> erişimi kapanır. Son kalan yönetici geri alınamaz (tam kilitlenme önlenir).</div>
     </div>
     <div class="card" id="loadSummary" style="display:none">
       <h3 style="margin-top:0">Yükleme Özeti</h3>

@@ -249,4 +249,78 @@ grant execute on function admin_reset_password(text,int)            to anon;
 grant execute on function admin_export(text)                        to anon;
 grant execute on function admin_set_lock(text,boolean)              to anon;
 
+-- ============================================================
+-- 8) KULLANICI BAZLI ADMIN (v2.1) ----------------------------
+-- Admin erişimi artık paylaşılan anahtar yerine KİŞİYE bağlı: admin, kendi
+-- sıra no + il + şifresiyle girer (is_admin=true ise). Adminler başka adaylara
+-- yetki verebilir/geri alabilir. admin_key yalnızca KURTARMA/YEDEK olarak kalır.
+-- (Bu blok mevcut bir veritabanında tek başına da çalıştırılabilir.)
+-- ============================================================
+
+-- 8.1 yetki kolonu
+alter table candidates add column if not exists is_admin boolean not null default false;
+
+-- 8.2 KURUCU ADMIN: sıra 54. (Önce o aday TOHUMLANMIŞ olmalı; değilse bu satır
+--     bir şey yapmaz — tohumlamadan sonra tekrar çalıştırın.)
+update candidates set is_admin=true where sira=54;
+
+-- 8.3 ADMIN GİRİŞİ — sıra+il+şifre doğrular, yetkiliyse master anahtarı döndürür.
+-- (Anahtar yalnızca is_admin=true olan, kimliği doğrulanmış kişiye döner.)
+create or replace function admin_login(p_sira int, p_il text, p_password text)
+returns jsonb language plpgsql security definer as $$
+declare c candidates; k text;
+begin
+  select * into c from candidates where sira=p_sira;
+  if not found then return jsonb_build_object('ok',false,'err','NOTFOUND'); end if;
+  if _norm(c.il)<>_norm(p_il) then return jsonb_build_object('ok',false,'err','BADIL'); end if;
+  if c.pass_hash is null or crypt(p_password,c.pass_hash)<>c.pass_hash then
+    return jsonb_build_object('ok',false,'err','BADPASS'); end if;
+  if not c.is_admin then return jsonb_build_object('ok',false,'err','NOTADMIN'); end if;
+  select value into k from app_settings where key='admin_key';
+  return jsonb_build_object('ok',true,'ad',c.ad,'soyad',c.soyad,'must_change',c.must_change,'key',k);
+end; $$;
+
+-- 8.4 YETKİ VER (yalnızca mevcut bir admin yapabilir)
+create or replace function admin_grant(p_key text, p_sira int)
+returns jsonb language plpgsql security definer as $$
+declare c candidates;
+begin
+  if not _is_admin(p_key) then return jsonb_build_object('ok',false,'err','UNAUTH'); end if;
+  select * into c from candidates where sira=p_sira;
+  if not found then return jsonb_build_object('ok',false,'err','NOTFOUND'); end if;
+  update candidates set is_admin=true where sira=p_sira;
+  return jsonb_build_object('ok',true,'sira',c.sira,'ad',c.ad,'soyad',c.soyad);
+end; $$;
+
+-- 8.5 YETKİ AL (geri alma) — son admini silmeye izin vermez (tam kilitlenme önlenir)
+create or replace function admin_revoke(p_key text, p_sira int)
+returns jsonb language plpgsql security definer as $$
+declare c candidates; n int;
+begin
+  if not _is_admin(p_key) then return jsonb_build_object('ok',false,'err','UNAUTH'); end if;
+  select * into c from candidates where sira=p_sira;
+  if not found then return jsonb_build_object('ok',false,'err','NOTFOUND'); end if;
+  if not c.is_admin then return jsonb_build_object('ok',true,'sira',c.sira,'ad',c.ad,'soyad',c.soyad); end if;
+  select count(*) into n from candidates where is_admin;
+  if n<=1 then return jsonb_build_object('ok',false,'err','LASTADMIN'); end if;
+  update candidates set is_admin=false where sira=p_sira;
+  return jsonb_build_object('ok',true,'sira',c.sira,'ad',c.ad,'soyad',c.soyad);
+end; $$;
+
+-- 8.6 ADMIN LİSTESİ (yetki panelinde gösterilir)
+create or replace function admin_list(p_key text)
+returns table(sira int, ad text, soyad text, il text)
+language plpgsql security definer stable as $$
+begin
+  if not _is_admin(p_key) then return; end if;
+  return query select c.sira,c.ad,c.soyad,c.il from candidates c where c.is_admin order by c.sira;
+end; $$;
+
+-- 8.7 anon yetkileri (yeni fonksiyonlar)
+grant execute on function admin_login(int,text,text)  to anon;
+grant execute on function admin_grant(text,int)       to anon;
+grant execute on function admin_revoke(text,int)      to anon;
+grant execute on function admin_list(text)            to anon;
+
 -- BİTTİ. Kurulum sonrası: admin.html'den "İlk Kurulum: Sheet'ten içe aktar" ile bir kez tohumlayın.
+-- Sıra 54 tohumlandıktan SONRA 8.2 satırını bir kez çalıştırın (kurucu admin yetkisi).

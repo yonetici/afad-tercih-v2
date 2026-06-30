@@ -577,6 +577,111 @@ let SB=null;
 })();
 function adminKey(){const k=document.getElementById('adminKey').value.trim();localStorage.setItem('afad_admin_key',k);return k;}
 
+/* ---- Kullanıcı bazlı yönetici girişi & yetki yönetimi ---- */
+// İl dropdown'unu doldur (81 il + Başkanlık)
+(function fillIlSelect(){
+  const sel=document.getElementById('aliIl'); if(!sel||typeof PROVINCES==='undefined') return;
+  sel.innerHTML='<option value="">İl seçin…</option>'+
+    [...PROVINCES,'Başkanlık'].map(p=>`<option value="${p}">${p}</option>`).join('');
+})();
+
+function setAdminSession(key, who){
+  document.getElementById('adminKey').value=key;
+  localStorage.setItem('afad_admin_key',key);
+  if(who) localStorage.setItem('afad_admin_who',who);
+  refreshAdminUI();
+}
+function clearAdminSession(){
+  localStorage.removeItem('afad_admin_key');
+  localStorage.removeItem('afad_admin_who');
+  document.getElementById('adminKey').value='';
+  STATE.candidates=[]; STATE.result=null; renderAll();
+  refreshAdminUI();
+}
+// Anahtar varsa: giriş satırını gizle, "kim" satırını + yetki kartını göster
+function refreshAdminUI(){
+  const has=!!localStorage.getItem('afad_admin_key');
+  const who=localStorage.getItem('afad_admin_who')||'';
+  document.getElementById('adminLoginRow').style.display=has?'none':'';
+  const whoRow=document.getElementById('adminWhoRow');
+  whoRow.style.display=has?'':'none';
+  document.getElementById('adminWho').textContent=has?('✓ Giriş: '+(who||'yönetici anahtarı kayıtlı')):'';
+  document.getElementById('permCard').style.display=has?'':'none';
+  if(has) loadAdminList();
+}
+
+document.getElementById('adminLoginBtn').addEventListener('click',async()=>{
+  if(!SB){alert('Supabase yapılandırılmamış (config.js).');return;}
+  const sira=Number(document.getElementById('aliSira').value.trim());
+  const il=document.getElementById('aliIl').value;
+  const pass=document.getElementById('aliPass').value;
+  const msg=document.getElementById('adminLoginMsg');
+  if(!sira||!il||!pass){msg.textContent='Sıra no, il ve şifre girin.';return;}
+  msg.textContent='Giriş yapılıyor…';
+  const {data,error}=await SB.rpc('admin_login',{p_sira:sira,p_il:il,p_password:pass});
+  if(error){msg.textContent='Hata: '+error.message;return;}
+  if(!data||!data.ok){
+    msg.textContent={NOTFOUND:'Sıra no bulunamadı.',BADIL:'İl eşleşmiyor.',BADPASS:'Şifre yanlış.',
+      NOTADMIN:'Bu kullanıcı yönetici değil.'}[data&&data.err]||'Giriş başarısız.';
+    return;
+  }
+  msg.textContent='';
+  document.getElementById('aliPass').value='';
+  const who=`${(data.ad||'')} ${(data.soyad||'')}`.trim()+` (#${sira})`;
+  setAdminSession(data.key, who);
+  if(data.must_change) alert('Uyarı: hesabınız hâlâ varsayılan/değiştirilmemiş şifrede. Aday sayfasından şifrenizi değiştirmeniz önerilir.');
+  pullFromSupabase(true);
+});
+document.getElementById('adminLogout').addEventListener('click',()=>{
+  if(confirm('Çıkış yapılsın mı? (Bu tarayıcıdaki yönetici oturumu silinir.)')) clearAdminSession();
+});
+
+async function loadAdminList(){
+  const box=document.getElementById('adminListBox'); if(!box) return;
+  if(!SB||!adminKey()){box.innerHTML='';return;}
+  const {data,error}=await SB.rpc('admin_list',{p_key:adminKey()});
+  if(error){box.innerHTML=`<div class="anaempty">Liste alınamadı: ${error.message}</div>`;return;}
+  if(!data||!data.length){box.innerHTML='<div class="anaempty">Yetkili anahtar yok ya da yönetici bulunamadı.</div>';return;}
+  box.innerHTML=data.map(a=>{
+    const ad=`${(a.ad||'')} ${(a.soyad||'')}`.trim()||'(isim yok)';
+    return `<div class="li" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <span><b>#${a.sira}</b> ${ad} <span class="muted small">— ${a.il||''}</span></span>
+      <button class="btn ghost sm" data-revoke="${a.sira}">Yetkiyi al</button></div>`;
+  }).join('');
+  box.querySelectorAll('[data-revoke]').forEach(b=>b.addEventListener('click',()=>doRevoke(Number(b.dataset.revoke))));
+}
+
+async function doGrant(sira){
+  const msg=document.getElementById('permMsg');
+  const {data,error}=await SB.rpc('admin_grant',{p_key:adminKey(),p_sira:sira});
+  if(error){msg.textContent='Hata: '+error.message;return;}
+  if(!data||!data.ok){
+    msg.textContent={UNAUTH:'Yetkiniz yok.',NOTFOUND:'Sıra no bulunamadı.'}[data&&data.err]||'İşlem başarısız.';return;}
+  msg.textContent=`✓ #${data.sira} ${(data.ad||'')} ${(data.soyad||'')}`.trim()+' yönetici yapıldı.';
+  loadAdminList();
+}
+async function doRevoke(sira){
+  const msg=document.getElementById('permMsg');
+  if(!confirm(`#${sira} adayının yönetici yetkisi geri alınsın mı?`)) return;
+  const {data,error}=await SB.rpc('admin_revoke',{p_key:adminKey(),p_sira:sira});
+  if(error){msg.textContent='Hata: '+error.message;return;}
+  if(!data||!data.ok){
+    msg.textContent={UNAUTH:'Yetkiniz yok.',NOTFOUND:'Sıra no bulunamadı.',
+      LASTADMIN:'Son kalan yönetici geri alınamaz.'}[data&&data.err]||'İşlem başarısız.';return;}
+  msg.textContent=`✓ #${data.sira} yetkisi geri alındı.`;
+  loadAdminList();
+}
+document.getElementById('permGrant').addEventListener('click',()=>{
+  const s=Number(document.getElementById('permSira').value.trim());
+  if(!s){document.getElementById('permMsg').textContent='Sıra no girin.';return;}
+  doGrant(s);
+});
+document.getElementById('permRevoke').addEventListener('click',()=>{
+  const s=Number(document.getElementById('permSira').value.trim());
+  if(!s){document.getElementById('permMsg').textContent='Sıra no girin.';return;}
+  doRevoke(s);
+});
+
 async function fetchSheetToState(url){
   const r=await fetch(sheetCsvUrl(url));
   if(!r.ok) throw new Error('HTTP '+r.status);
@@ -606,8 +711,17 @@ async function pullFromSupabase(silent){
   return true;
 }
 document.getElementById('sbPull').addEventListener('click',()=>pullFromSupabase(false));
-// açılışta: yönetici anahtarı kayıtlıysa otomatik Supabase'ten yükle
-window.addEventListener('load', ()=>{ if(SB && localStorage.getItem('afad_admin_key')) pullFromSupabase(true); });
+// açılışta: yönetici anahtarı kayıtlıysa otomatik Supabase'ten yükle; yüklenemezse net ipucu göster
+window.addEventListener('load', async ()=>{
+  refreshAdminUI();
+  const hint='Veri henüz çekilmedi → Yönetici girişi yapın (sıra no + il + şifre). Tohumlama Supabase\'te kalıcıdır; giriş yapınca ekrana gelir.';
+  if(SB && localStorage.getItem('afad_admin_key')){
+    const ok = await pullFromSupabase(true);
+    if(!ok) document.getElementById('loadStatus').textContent = hint;
+  } else if(SB){
+    document.getElementById('loadStatus').textContent = hint;
+  }
+});
 
 // İLK KURULUM: Sheet'ten tohumla (adaylar+şifre+mevcut tercih) — tek sefer
 document.getElementById('seedBtn').addEventListener('click',async()=>{
@@ -679,6 +793,7 @@ document.getElementById('dashAuto').addEventListener('change',e=>{
 
 document.getElementById('dashSearch').addEventListener('input',e=>{dashSearchTerm=e.target.value;renderDash();});
 
-/* ilk açılış: kadro tablosunu + dashboard'u doldur */
+/* ilk açılış: kadro tablosunu + dashboard'u doldur (kadro yerel veridir, Supabase gerekmez) */
 renderQuota();
 renderDash();
+renderBadges();
