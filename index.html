@@ -85,6 +85,7 @@
   <!-- TERCİH EKRANI -->
   <div id="prefCard" class="card hidden">
     <div id="meInfo" style="font-size:15px;font-weight:600;margin-bottom:10px;padding:10px 12px;background:var(--panel2);border:1px solid var(--line);border-radius:9px"></div>
+    <div id="summaryBox" style="margin-bottom:12px;padding:12px 14px;background:rgba(34,197,94,.08);border:1px solid var(--ok);border-radius:10px;font-size:14px"></div>
     <div id="lockNote"></div>
     <div class="msg info proj" id="proj"></div>
 
@@ -130,7 +131,7 @@
 
 <script>
 const MAX=Number(window.MAX_PREFS)||15;
-let sb=null, me=null, chosen=[], rem={}, locked=false;
+let sb=null, me=null, chosen=[], rem={}, locked=false, savedPrefs=[];
 
 if(!window.SUPABASE_URL||!window.SUPABASE_ANON_KEY){
   document.getElementById('cfgWarn').classList.remove('hidden');
@@ -189,7 +190,7 @@ async function enterEditor(loginData){
   const aq=await sb.rpc('available_quota',{p_sira:me.sira});
   rem={}; (aq.data||[]).forEach(r=>rem[r.il]=r.kalan);
   const saved=Array.isArray(loginData.prefs)?loginData.prefs.filter(x=>OPEN_PROVINCES.includes(x)):[];
-  chosen=saved.slice(0,MAX);
+  chosen=saved.slice(0,MAX); savedPrefs=saved.slice(0,MAX);
   document.getElementById('meInfo').innerHTML=`👤 <b>#${me.sira} — ${((me.ad||'')+' '+(me.soyad||'')).trim()||'(isim yok)'}</b> · Mevcut il: ${me.il}`;
   document.getElementById('lockNote').innerHTML = locked
     ? '<div class="msg bad">🔒 Tercih dönemi kapalı. Görüntüleyebilir ama değiştiremezsiniz.</div>' : '';
@@ -258,7 +259,24 @@ function renderEasy(){
   chips.innerHTML=list.map(p=>`<button class="btn ghost sm" data-easy="${p}" style="border-color:#16a34a">${p} <span style="opacity:.7">(${rem[p]} boş)</span></button>`).join('')||'<span class="muted" style="font-size:12px">Tüm uygun iller seçildi.</span>';
   chips.querySelectorAll('[data-easy]').forEach(b=>b.onclick=()=>toggle(b.dataset.easy));
 }
-function renderAll(){renderCnt();renderProj();renderEasy();renderTable();renderChosen();repaintMap();}
+function renderSummary(){
+  const el=document.getElementById('summaryBox'); if(!el) return;
+  let proj=null; for(const p of savedPrefs){ if((rem[p]||0)>0){proj=p;break;} }
+  const list = savedPrefs.length
+    ? savedPrefs.map((p,i)=>`<span style="display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:2px 8px;margin:2px">${i+1}. ${p}</span>`).join(' ')
+    : '<span class="muted">Henüz kayıtlı tercihiniz yok.</span>';
+  const projHtml = savedPrefs.length
+    ? (proj?`Mevcut duruma göre tahmini yerleşeceğiniz il: <b style="color:#86efac">${proj}</b> (${savedPrefs.indexOf(proj)+1}. tercih).`
+           :'<b style="color:#fca5a5">Kayıtlı tercihlerinizle şu an yerleşme görünmüyor.</b>')
+    : '';
+  const unsaved = JSON.stringify(savedPrefs)!==JSON.stringify(chosen);
+  el.innerHTML = `<div style="font-weight:700;margin-bottom:6px">📋 Kayıtlı Tercih Özetiniz</div>
+    <div>${list}</div>
+    ${projHtml?`<div style="margin-top:8px">${projHtml}</div>`:''}
+    ${unsaved?'<div style="margin-top:8px;color:#fcd34d">⚠ Kaydedilmemiş değişiklikleriniz var — aşağıdan <b>Tercihlerimi Kaydet</b>\'e basın.</div>':''}
+    <div class="muted" style="margin-top:8px;font-size:12px">Nihai yerleştirme, tüm adaylar tercihlerini girip dönem kapandıktan sonra kesinleşir.</div>`;
+}
+function renderAll(){renderCnt();renderProj();renderEasy();renderTable();renderChosen();repaintMap();renderSummary();}
 
 /* ---- KAYDET ---- */
 document.getElementById('saveBtn').addEventListener('click',async()=>{
@@ -270,7 +288,7 @@ document.getElementById('saveBtn').addEventListener('click',async()=>{
   const m=document.getElementById('saveMsg');
   const t={OK:null,LOCKED:'Tercih dönemi kapalı, değiştirilemez.',MUSTCHANGE:'Önce şifrenizi değiştirmelisiniz.',BADPASS:'Oturum doğrulanamadı, tekrar giriş yapın.',BADIL:'Kimlik doğrulanamadı.',NOTFOUND:'Kayıt bulunamadı.'};
   if(error){m.innerHTML=`<div class="msg bad">Hata: ${error.message}</div>`;return;}
-  if(data==='OK') m.innerHTML=`<div class="msg ok">✅ Tercihleriniz kaydedildi (${chosen.length} tercih).</div>`;
+  if(data==='OK'){ savedPrefs=chosen.slice(); renderSummary(); m.innerHTML=`<div class="msg ok">✅ Tercihleriniz kaydedildi (${chosen.length} tercih).</div>`; }
   else m.innerHTML=`<div class="msg bad">${t[data]||('Beklenmeyen yanıt: '+data)}</div>`;
 });
 
