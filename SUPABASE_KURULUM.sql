@@ -37,10 +37,11 @@ insert into quota(il,sayi) values
 on conflict (il) do nothing;
 
 -- 2) YÖNETİCİ ANAHTARI — MUTLAKA DEĞİŞTİRİN
--- NOT: Aşağıdaki değeri SQL Editor'da çalıştırmadan ÖNCE kendi GİZLİ anahtarınızla değiştirin.
+-- NOT: Değeri SQL Editor'da çalıştırmadan ÖNCE kendi GİZLİ anahtarınızla değiştirin.
 -- Bu dosya public repoda olduğu için buraya gerçek anahtar YAZMAYIN.
+-- (do update: tekrar çalıştırıldığında değeri GÜNCELLER — eski 'do nothing' tuzağı yok.)
 insert into app_settings(key,value) values ('admin_key','BUNU-DEGISTIRIN-gizli-bir-anahtar')
-on conflict (key) do nothing;
+on conflict (key) do update set value=excluded.value;
 
 -- 3) RLS: doğrudan erişim kapalı (her şey fonksiyon üzerinden)
 alter table candidates   enable row level security;
