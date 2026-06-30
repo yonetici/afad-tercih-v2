@@ -113,7 +113,7 @@
         <input class="search" id="sheetUrl" placeholder="Herkese açık Google Sheets bağlantısı" style="min-width:320px"/>
         <span class="muted small" id="sheetStatus"></span>
       </div>
-      <div class="note" style="margin:10px 0 0">Bu bağlantı yalnızca <b>ilk kurulumda (tek sefer)</b> adayları içe aktarmak için kullanılır. Sonrasında sistemin Sheet ile bağı kalmaz.</div>
+      <div class="note" style="margin:10px 0 0">Bu bağlantı yalnızca <b>ilk kurulumda (tek sefer)</b> kullanılır. Ayrı bir "çek" butonu yoktur — aşağıdaki <b>☁️ Supabase</b> kartındaki <b>🌱 İlk Kurulum: Sheet'ten Tohumla</b> butonu bu bağlantıyı okuyup Supabase'e yazar (ve şifreleri indirir). Sonrasında sistemin Sheet ile bağı kalmaz. ⬇️</div>
     </div>
     <div class="card" id="sbCard">
       <div class="toolbar"><b>☁️ Supabase</b><span class="muted small" id="sbState"></span></div>
@@ -124,7 +124,7 @@
         <button class="btn ghost" id="sbUnlock" title="Tercih değişikliğini yeniden açar">🔓 Tercihleri Aç</button>
       </div>
       <div class="flex" style="margin-bottom:10px;border-top:1px solid var(--line);padding-top:10px">
-        <button class="btn ghost" id="seedBtn" title="Google Sheets'ten adayları + mevcut tercihleri BİR KEZ içe aktarır; yeni adaylara varsayılan şifre üretir ve indirir">🌱 İlk Kurulum: Sheet'ten Tohumla</button>
+        <button class="btn" id="seedBtn" style="background:#16a34a" title="Google Sheets'ten adayları + mevcut tercihleri BİR KEZ içe aktarır; yeni adaylara varsayılan şifre üretir ve indirir">🌱 İlk Kurulum: Sheet'ten Tohumla</button>
         <span style="font-weight:600;margin-left:8px">🔑 Şifre sıfırla:</span>
         <input class="search" id="rstSira" inputmode="numeric" placeholder="Sıra no" style="min-width:80px;max-width:110px"/>
         <button class="btn ghost" id="rstBtn">Sıfırla</button>
