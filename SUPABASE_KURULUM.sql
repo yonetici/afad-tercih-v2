@@ -142,6 +142,31 @@ begin
   end loop;
 end; $$;
 
+-- ÜST SIRA TALEBİ: p_sira'dan ÜST sıradaki adayların listelediği (açık kadrolu) iller.
+-- Her satır: il, o ili yazan üst-sıra aday (sira/ad/soyad), kaçıncı tercihi, ve o ile YERLEŞTİ mi.
+create or replace function province_seekers(p_sira int)
+returns table(il text, sira int, ad text, soyad text, rank int, placed boolean)
+language plpgsql security definer stable as $$
+declare rem jsonb; c record; arr jsonb; i int; pr text; got text;
+begin
+  select jsonb_object_agg(q.il,q.sayi) into rem from quota q;
+  for c in select cand.sira s, cand.ad a, cand.soyad so, coalesce(p.prefs,'[]'::jsonb) pf
+           from candidates cand left join preferences p on p.sira=cand.sira
+           where cand.sira < p_sira order by cand.sira asc loop
+    arr:=c.pf; got:=null;
+    for i in 0..coalesce(jsonb_array_length(arr),0)-1 loop
+      pr:=arr->>i;
+      if (rem ? pr) and (rem->>pr)::int>0 then rem:=jsonb_set(rem,array[pr],to_jsonb((rem->>pr)::int-1)); got:=pr; exit; end if;
+    end loop;
+    for i in 0..coalesce(jsonb_array_length(arr),0)-1 loop
+      pr:=arr->>i;
+      if rem ? pr then
+        il:=pr; sira:=c.s; ad:=c.a; soyad:=c.so; rank:=i+1; placed:=(pr=got); return next;
+      end if;
+    end loop;
+  end loop;
+end; $$;
+
 -- 6) ADMIN -----------------------------------------------------
 -- Tek seferlik tohumlama: yeni adaylara 6 haneli varsayılan şifre üretir (düz metni döndürür).
 -- Mevcut adayda: ad/soyad/il güncellenir, şifre KORUNUR (password='(mevcut)').
@@ -217,6 +242,7 @@ grant execute on function change_password(int,text,text,text)       to anon;
 grant execute on function save_preferences(int,text,text,jsonb)     to anon;
 grant execute on function available_quota(int)                      to anon;
 grant execute on function placement_report()                        to anon;
+grant execute on function province_seekers(int)                     to anon;
 grant execute on function admin_seed(text,jsonb)                    to anon;
 grant execute on function admin_seed_prefs(text,jsonb)              to anon;
 grant execute on function admin_reset_password(text,int)            to anon;

@@ -115,7 +115,7 @@
       <div>
         <input type="text" id="search" placeholder="İl ara…" autocomplete="off" style="margin-bottom:8px"/>
         <div class="tablewrap"><table>
-          <thead><tr><th>İl</th><th>Kadro</th><th>Size Kalan</th><th>Durum</th><th></th></tr></thead>
+          <thead><tr><th>İl</th><th>Kadro</th><th>Size Kalan</th><th title="Senden üst sırada bu ili isteyen aday sayısı">Üstünde</th><th>Durum</th><th></th></tr></thead>
           <tbody id="availBody"></tbody>
         </table></div>
         <label class="fld" style="margin-top:14px">Seçtikleriniz (sıralı)</label>
@@ -149,7 +149,7 @@
 
 <script>
 const MAX=Number(window.MAX_PREFS)||15;
-let sb=null, me=null, chosen=[], rem={}, locked=false, savedPrefs=[];
+let sb=null, me=null, chosen=[], rem={}, locked=false, savedPrefs=[], SEEKERS={};
 
 if(!window.SUPABASE_URL||!window.SUPABASE_ANON_KEY){
   document.getElementById('cfgWarn').classList.remove('hidden');
@@ -208,6 +208,8 @@ async function enterEditor(loginData){
   locked=!!loginData.locked;
   const aq=await sb.rpc('available_quota',{p_sira:me.sira});
   rem={}; (aq.data||[]).forEach(r=>rem[r.il]=r.kalan);
+  const ps=await sb.rpc('province_seekers',{p_sira:me.sira});
+  SEEKERS={}; (ps.data||[]).forEach(r=>{(SEEKERS[r.il]=SEEKERS[r.il]||[]).push(r);});
   const saved=Array.isArray(loginData.prefs)?loginData.prefs.filter(x=>OPEN_PROVINCES.includes(x)):[];
   chosen=saved.slice(0,MAX); savedPrefs=saved.slice(0,MAX);
   document.getElementById('meInfo').innerHTML=`👤 <b>#${me.sira} — ${((me.ad||'')+' '+(me.soyad||'')).trim()||'(isim yok)'}</b> · Mevcut il: ${me.il}`;
@@ -265,7 +267,13 @@ function mapInfo(p){ const el=document.getElementById('mapInfo');
   if(!isOpen(p)){el.innerHTML=`<b>${p}</b> — açık kadro yok`;return;}
   const i=chosen.indexOf(p),k=rem[p]||0;
   const d=i>=0?`<span style="color:#7dd3fc">${i+1}. tercihiniz</span>`:(k>0?'<span style="color:#86efac">uygun</span>':'<span style="color:#fca5a5">dolu</span>');
-  el.innerHTML=`<b>${p}</b> — ${DEFAULT_QUOTA[p]} kadro · size kalan <b>${k}</b> · ${d}`; }
+  const sk=SEEKERS[p]||[];
+  let extra = sk.length? ` · 👥 üstünde <b>${sk.length}</b> kişi istiyor` : '';
+  if(k<=0){
+    const fillers=sk.filter(x=>x.placed).map(x=>`#${x.sira} ${((x.ad||'')+' '+(x.soyad||'')).trim()}`);
+    if(fillers.length) extra += `<br><span style="color:#fca5a5">Kadroyu dolduran: ${fillers.join(', ')}</span>`;
+  }
+  el.innerHTML=`<b>${p}</b> — ${DEFAULT_QUOTA[p]} kadro · size kalan <b>${k}</b> · ${d}${extra}`; }
 async function drawMap(){ await renderTurkeyMap(document.getElementById('mapBox'),{
   fill:mapFill,label:mapLabel,labelSize:9,onClick:toggle,onHover:mapInfo,
   title:p=>isOpen(p)?`${p} — ${DEFAULT_QUOTA[p]} kadro · kalan ${rem[p]||0}`:`${p} (kadro yok)`}); }
@@ -278,7 +286,9 @@ function renderTable(){
     const k=rem[p]||0,ch=chosen.includes(p);
     const durum=ch?'<span class="pill ok">seçildi</span>':(k>0?'<span class="pill ok">uygun</span>':'<span class="pill bad">dolu</span>');
     const btn=ch?`<button class="btn ghost sm" data-rm="${p}" ${locked?'disabled':''}>çıkar</button>`:`<button class="btn sm" data-add="${p}" ${canAdd(p)&&!locked?'':'disabled'}>ekle</button>`;
-    return `<tr class="${k>0||ch?'':'full'}"><td><b>${p}</b></td><td>${DEFAULT_QUOTA[p]}</td><td>${k}</td><td>${durum}</td><td>${btn}</td></tr>`;
+    const sk=SEEKERS[p]||[]; const above=sk.length;
+    const aboveCell=above?`<span title="${sk.map(x=>'#'+x.sira+' '+((x.ad||'')+' '+(x.soyad||'')).trim()+(x.placed?' (yerleşti)':'')).join('\n')}">${above}</span>`:'0';
+    return `<tr class="${k>0||ch?'':'full'}"><td><b>${p}</b></td><td>${DEFAULT_QUOTA[p]}</td><td>${k}</td><td>${aboveCell}</td><td>${durum}</td><td>${btn}</td></tr>`;
   }).join('');
   const b=document.getElementById('availBody'); b.innerHTML=rows;
   b.querySelectorAll('[data-add]').forEach(x=>x.onclick=()=>toggle(x.dataset.add));
