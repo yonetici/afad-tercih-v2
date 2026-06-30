@@ -4,8 +4,8 @@
    2) Project Settings > API: "Project URL" ve "anon public" anahtarı.
    3) SUPABASE_KURULUM.sql'i SQL Editor'da çalıştırın (admin_key'i değiştirin).
    ============================================================ */
-window.SUPABASE_URL = "";        // örn: "https://xxxx.supabase.co"
-window.SUPABASE_ANON_KEY = "";   // örn: "eyJhbGciOi...."
+window.SUPABASE_URL = "https://eimvwataicxhayoisdky.supabase.co";        // örn: "https://xxxx.supabase.co"
+window.SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVpbXZ3YXRhaWN4aGF5b2lzZGt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MjUxOTAsImV4cCI6MjA5ODQwMTE5MH0.KtudAWBd0VflFjfyTxnJ-AYBfs8rXPCjwnK337HwKfQ";   // örn: "eyJhbGciOi...."
 
 /* Aday başına en fazla tercih sayısı */
 window.MAX_PREFS = 15;
