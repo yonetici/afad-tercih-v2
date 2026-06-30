@@ -860,7 +860,7 @@ async function pullFromSupabase(silent){
   if(!SB){ if(!silent) alert('Supabase yapılandırılmamış (config.js).'); return false; }
   const {data,error}=await SB.rpc('admin_export',{p_key:adminKey()});
   if(error){ if(!silent) alert('Hata: '+error.message); return false; }
-  if(!data || data.length===0){ if(!silent) alert('Yetkisiz ya da kayıt yok. Yönetici anahtarını kontrol edin.'); return false; }
+  if(!data || data.length===0){ if(!silent) alert('Veri gelmedi. İki olası sebep:\n1) Henüz tohumlama yapılmadı → önce yeşil "🌱 İlk Kurulum: Sheet\'ten Tohumla" butonuna basın.\n2) Yönetici anahtarı yanlış → app_settings\'teki admin_key ile aynı olmalı.'); return false; }
   loadFromRows(data);
   document.getElementById('loadStatus').textContent=`Supabase'ten ${data.length} aday yüklendi (${new Date().toLocaleTimeString('tr-TR')}).`;
   return true;
@@ -882,7 +882,9 @@ document.getElementById('seedBtn').addEventListener('click',async()=>{
   const candRows=STATE.candidates.map(c=>({sira:c.sira,ad:c.ad,soyad:c.soyad,il:c.il}));
   const {data:seeded,error:e1}=await SB.rpc('admin_seed',{p_key:adminKey(),p_rows:candRows});
   if(e1){am.textContent='';alert('Hata: '+e1.message);return;}
-  if(!seeded){am.textContent='';alert('Yetkisiz: yönetici anahtarını kontrol edin.');return;}
+  if(!seeded || seeded.length===0){am.textContent='';
+    alert('Yetkisiz: yönetici anahtarı YANLIŞ — hiçbir kayıt yazılmadı.\n\nGirdiğiniz anahtar, Supabase\'te SUPABASE_KURULUM.sql ile yazdığınız admin_key ile birebir aynı olmalı.\nKontrol: Supabase SQL Editor → select value from app_settings where key=\'admin_key\';');
+    return;}
   const prefRows=STATE.candidates.map(c=>({sira:c.sira,prefs:c.prefs.filter(p=>p.valid&&isOpenKadro(p.canon)).map(p=>p.canon)})).filter(r=>r.prefs.length);
   await SB.rpc('admin_seed_prefs',{p_key:adminKey(),p_rows:prefRows});
   const newPw=seeded.filter(r=>r.password && r.password!=='(mevcut)');
