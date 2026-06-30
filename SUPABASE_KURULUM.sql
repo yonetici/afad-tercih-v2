@@ -121,6 +121,27 @@ begin
   return query select key, value::int from jsonb_each_text(rem);
 end; $$;
 
+-- HERKESE AÇIK YERLEŞTİRME RAPORU: tüm adayları sıra sırasına göre yerleştirir,
+-- her birinin yerleştiği il + kaçıncı tercih bilgisini döndürür (adaylar görebilir).
+create or replace function placement_report()
+returns table(sira int, ad text, soyad text, il text, placed text, rank int)
+language plpgsql security definer stable as $$
+declare rem jsonb; c record; arr jsonb; i int; pr text; pl text; rk int;
+begin
+  select jsonb_object_agg(q.il,q.sayi) into rem from quota q;
+  for c in select cand.sira s, cand.ad a, cand.soyad so, cand.il ci, coalesce(p.prefs,'[]'::jsonb) pf
+           from candidates cand left join preferences p on p.sira=cand.sira order by cand.sira asc loop
+    arr:=c.pf; pl:=null; rk:=null;
+    for i in 0..coalesce(jsonb_array_length(arr),0)-1 loop
+      pr:=arr->>i;
+      if (rem ? pr) and (rem->>pr)::int>0 then
+        rem:=jsonb_set(rem,array[pr],to_jsonb((rem->>pr)::int-1)); pl:=pr; rk:=i+1; exit;
+      end if;
+    end loop;
+    sira:=c.s; ad:=c.a; soyad:=c.so; il:=c.ci; placed:=pl; rank:=rk; return next;
+  end loop;
+end; $$;
+
 -- 6) ADMIN -----------------------------------------------------
 -- Tek seferlik tohumlama: yeni adaylara 6 haneli varsayılan şifre üretir (düz metni döndürür).
 -- Mevcut adayda: ad/soyad/il güncellenir, şifre KORUNUR (password='(mevcut)').
@@ -195,6 +216,7 @@ grant execute on function login(int,text,text)                      to anon;
 grant execute on function change_password(int,text,text,text)       to anon;
 grant execute on function save_preferences(int,text,text,jsonb)     to anon;
 grant execute on function available_quota(int)                      to anon;
+grant execute on function placement_report()                        to anon;
 grant execute on function admin_seed(text,jsonb)                    to anon;
 grant execute on function admin_seed_prefs(text,jsonb)              to anon;
 grant execute on function admin_reset_password(text,int)            to anon;

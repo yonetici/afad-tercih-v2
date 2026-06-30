@@ -56,7 +56,10 @@
     <h1>AFAD Şube Müdürü — Tercih Sistemi</h1>
     <p>Görevde Yükselme / Ünvan Değişikliği · sıra no + il + şifre ile giriş</p>
   </div>
-  <button class="btn ghost sm hidden" id="logoutBtn">Çıkış</button>
+  <div style="display:flex;gap:8px">
+    <button class="btn ghost sm hidden" id="reportBtn">📊 Yerleştirme Raporu</button>
+    <button class="btn ghost sm hidden" id="logoutBtn">Çıkış</button>
+  </div>
 </header>
 <div class="wrap">
   <div id="cfgWarn" class="card hidden"><div class="msg bad">⚠ Sistem yapılandırılmamış (Supabase ayarı eksik). Lütfen yetkiliye bildirin.</div></div>
@@ -129,6 +132,21 @@
   </div>
 </div>
 
+<div id="reportOverlay" class="hidden" style="position:fixed;inset:0;background:rgba(15,23,42,.98);z-index:1000;overflow:auto;padding:20px">
+  <div style="max-width:1000px;margin:0 auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">
+      <div><h2 style="margin:0">📊 Yerleştirme Raporu</h2><div id="reportNote" class="muted" style="font-size:13px"></div></div>
+      <button class="btn ghost" id="reportClose">Kapat ✕</button>
+    </div>
+    <div id="reportStats" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;font-size:13px"></div>
+    <input type="text" id="reportSearch" placeholder="Ad / soyad / il ara…" style="margin-bottom:8px"/>
+    <div class="tablewrap" style="max-height:68vh">
+      <table><thead><tr><th>Sıra</th><th>Ad Soyad</th><th>Mevcut İl</th><th>Yerleştiği İl</th><th>Tercih</th></tr></thead>
+      <tbody id="reportBody"></tbody></table>
+    </div>
+  </div>
+</div>
+
 <script>
 const MAX=Number(window.MAX_PREFS)||15;
 let sb=null, me=null, chosen=[], rem={}, locked=false, savedPrefs=[];
@@ -186,6 +204,7 @@ document.getElementById('pwBtn').addEventListener('click',async()=>{
 async function enterEditor(loginData){
   document.getElementById('loginCard').classList.add('hidden');
   document.getElementById('logoutBtn').classList.remove('hidden');
+  document.getElementById('reportBtn').classList.remove('hidden');
   locked=!!loginData.locked;
   const aq=await sb.rpc('available_quota',{p_sira:me.sira});
   rem={}; (aq.data||[]).forEach(r=>rem[r.il]=r.kalan);
@@ -199,6 +218,37 @@ async function enterEditor(loginData){
   await drawMap(); renderAll();
 }
 document.getElementById('logoutBtn').addEventListener('click',()=>location.reload());
+
+/* ---- Tüm yerleştirme raporu ---- */
+let REPORT=[];
+document.getElementById('reportBtn').addEventListener('click',async()=>{
+  const btn=document.getElementById('reportBtn'); btn.disabled=true;
+  const {data,error}=await sb.rpc('placement_report');
+  btn.disabled=false;
+  if(error){alert('Rapor alınamadı: '+error.message);return;}
+  REPORT=data||[];
+  document.getElementById('reportNote').innerHTML = locked
+    ? '✅ Kesin sonuç (tercih dönemi kapalı).'
+    : '⏳ Geçici sonuç — dönem henüz açık; adaylar tercih değiştirdikçe değişebilir.';
+  renderReport();
+  document.getElementById('reportOverlay').classList.remove('hidden');
+});
+document.getElementById('reportClose').addEventListener('click',()=>document.getElementById('reportOverlay').classList.add('hidden'));
+document.getElementById('reportSearch').addEventListener('input',renderReport);
+function renderReport(){
+  const term=normKey(document.getElementById('reportSearch').value);
+  const n=REPORT.length, placed=REPORT.filter(r=>r.placed).length, p1=REPORT.filter(r=>r.rank===1).length;
+  document.getElementById('reportStats').innerHTML=
+    `<span>Toplam: <b>${n}</b></span> <span style="color:#86efac">Yerleşen: <b>${placed}</b></span> `+
+    `<span style="color:#fca5a5">Açıkta: <b>${n-placed}</b></span> <span>1. Tercih: <b>${p1}</b></span>`;
+  const rows=REPORT.filter(r=>{const h=normKey((r.ad||'')+(r.soyad||'')+(r.placed||'')+(r.il||''));return term===''||h.includes(term);})
+    .map(r=>{
+      const mine=me&&r.sira===me.sira;
+      const yer=r.placed?`<span class="pill ok">${r.placed}</span>`:'<span class="pill bad">AÇIKTA</span>';
+      return `<tr style="${mine?'background:rgba(56,189,248,.18)':''}"><td>${r.sira}</td><td><b>${((r.ad||'')+' '+(r.soyad||'')).trim()||'-'}</b>${mine?' 👈 siz':''}</td><td class="muted">${r.il||'-'}</td><td>${yer}</td><td>${r.placed?r.rank+'. tercih':'—'}</td></tr>`;
+    }).join('');
+  document.getElementById('reportBody').innerHTML=rows||'<tr><td colspan="5" style="text-align:center;color:#888;padding:20px">Kayıt yok</td></tr>';
+}
 
 /* ---- yardımcılar (sim ile aynı) ---- */
 function isOpen(p){return DEFAULT_QUOTA[p]!=null;}
