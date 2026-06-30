@@ -37,7 +37,9 @@ insert into quota(il,sayi) values
 on conflict (il) do nothing;
 
 -- 2) YÖNETİCİ ANAHTARI — MUTLAKA DEĞİŞTİRİN
-insert into app_settings(key,value) values ('admin_key','BUNU-DEGISTIRIN-gizli')
+-- NOT: Aşağıdaki değeri SQL Editor'da çalıştırmadan ÖNCE kendi GİZLİ anahtarınızla değiştirin.
+-- Bu dosya public repoda olduğu için buraya gerçek anahtar YAZMAYIN.
+insert into app_settings(key,value) values ('admin_key','BUNU-DEGISTIRIN-gizli-bir-anahtar')
 on conflict (key) do nothing;
 
 -- 3) RLS: doğrudan erişim kapalı (her şey fonksiyon üzerinden)
