@@ -107,18 +107,21 @@
       <div id="easyChips" style="display:flex;gap:6px;flex-wrap:wrap"></div>
     </div>
 
+    <!-- Harita: üstte, tam genişlik -->
+    <div id="mapInfo" style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:13px;min-height:38px">Bir ilin üzerine gelin ya da tıklayın.</div>
+    <div id="mapBox" style="margin-bottom:16px"></div>
+
+    <!-- Altta: İl tablosu | Seçtikleriniz yan yana -->
     <div class="grid2">
       <div>
-        <div id="mapInfo" style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:13px;min-height:38px">Bir ilin üzerine gelin ya da tıklayın.</div>
-        <div id="mapBox"></div>
-      </div>
-      <div>
         <input type="text" id="search" placeholder="İl ara…" autocomplete="off" style="margin-bottom:8px"/>
-        <div class="tablewrap"><table>
+        <div class="tablewrap" style="max-height:420px"><table>
           <thead><tr><th>İl</th><th>Kadro</th><th>Size Kalan</th><th title="Senden üst sırada bu ili isteyen aday sayısı">Üstünde</th><th>Durum</th><th></th></tr></thead>
           <tbody id="availBody"></tbody>
         </table></div>
-        <label class="fld" style="margin-top:14px">Seçtikleriniz (sıralı)</label>
+      </div>
+      <div>
+        <label class="fld" style="margin-top:0">Seçtikleriniz (sıralı)</label>
         <ol class="chosen" id="chosen"></ol>
       </div>
     </div>
